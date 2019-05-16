@@ -23,6 +23,7 @@ $seoFilter = $arResult;
 ---
 ---
 ![Image](https://github.com/Isa3v/filterSeoTag/blob/master/readme.png?raw=true)
+![Image](https://github.com/Isa3v/filterSeoTag/blob/master/options.png?raw=true)
 ---
 
 ### Шаблоны мета-тегов
