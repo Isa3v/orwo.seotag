@@ -1,3 +1,9 @@
+### Установка
+---
+![Image](https://github.com/Isa3v/filterSeoTag/blob/master/installstep1.png?raw=true)
+![Image](https://github.com/Isa3v/filterSeoTag/blob/master/installstep2.png?raw=true)
+![Image](https://github.com/Isa3v/filterSeoTag/blob/master/installstep3.png?raw=true)
+---
 ### Настройки перед работой. 
 ---
 - При установке модуля будет этап выбора инфоблока каталога. Этот инфоблок можно позже изменить в настройках модуля.
