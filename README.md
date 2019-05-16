@@ -21,6 +21,10 @@ global $seoFilter;
 $seoFilter = $arResult;
 ```
 ---
+---
+![Image](https://github.com/Isa3v/filterSeoTag/blob/master/readme.png?raw=true)
+---
+
 ### Шаблоны мета-тегов
 ---
 - `{FILTER_VALUE}` — Первый элемент (Всегда идет по дефолту). 
