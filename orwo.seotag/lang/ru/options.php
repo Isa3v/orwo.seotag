@@ -7,6 +7,8 @@ $MESS['OR_IBLOCK_OPTIONS_HINT'] = "Выбор инфоблока с которы
 
 $MESS['OR_SEO_IBLOCK_OPTIONS'] = "Инфоблок SEO-условий: ";
 $MESS['OR_SEO_IBLOCK_OPTIONS_HINT'] = "Выбор инфоблока условий";
+$MESS['OR_TRANSLIT_OPTIONS'] = "Значения фильтра в транслите: ";
+$MESS['OR_TRANSLIT_OPTIONS_HINT'] = "Если значения фильтра проходят транслитерацию, (brand-is-кедр становится brand-is-kedr), то включите данную опцию";
 $MESS['NEW_SITEMAP_CREATE'] = "Добавить ссылки фильтра в карту сайта";
 $MESS['NEW_SITEMAP_CREATE_PATH'] = "Путь до карты сайта: ";
 $MESS['NEW_SITEMAP_CREATE_PATH_HINT'] = "Укажите полный путь до файла или оставьте пустым, если путь соответсвует";

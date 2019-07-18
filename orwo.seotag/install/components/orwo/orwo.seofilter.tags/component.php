@@ -11,100 +11,58 @@ if (class_exists('\Orwo\Seotag\InitFilter')) {
         $arResult['SECTION_ID'] = $arRes['ID'];
         $arResult['IBLOCK_SECTION'] = $arRes['NAME'];
     }
+    // Получаем ID Highloadblock блока из модуля
+    $seoHighloadID = \Orwo\Seotag\InitFilter::seoHighloadID();
+    // Создаем сущность для работы с блоком:
+    if (\Bitrix\Main\Loader::includeModule('highloadblock')) {
+        $arHLBlock = Bitrix\Highloadblock\HighloadBlockTable::getById($seoHighloadID)->fetch();
+        $obEntity = Bitrix\Highloadblock\HighloadBlockTable::compileEntity($arHLBlock);
+        $strEntityDataClass = $obEntity->getDataClass();
+
+        //Получение списка:
+        $rsData = $strEntityDataClass::getList(array(
+            'select' => array('UF_NEW', 'UF_ID', 'UF_SECTION', 'UF_TAG', 'UF_TOP'),
+            'filter' => array('UF_SECTION' => $arParams['SECTION_ID'])
+         ));
+        while ($arHighloadItem = $rsData->Fetch()) {
+            $arItems[] = $arHighloadItem;
+        }
+    }
 
     // Получаем данные SEO Инфоблока
     $arFilterSeoPagesFilter = array(
-      "IBLOCK_ID" => \Orwo\Seotag\InitFilter::seoIblockID(), // Из класса достаем ID сео инфоблока
-      "ACTIVE_DATE" => "Y",
-      "ACTIVE" => "Y", // Акивный
-      "PROPERTY_SET_TAG_VALUE" => "Да", // Получаем с активным чекбоксом тегирования
-      "PROPERTY_SET_ID_LIST" => $arResult['SECTION_ID'] // Есть URL раздела в списке
-    );
-    $dbFilterPages = \CIBlockElement::GetList(array("sort" => "desc"), $arFilterSeoPagesFilter, false, false, array("IBLOCK_ID", "ID", "NAME"));
-    while ($obFilterPages = $dbFilterPages->GetNextElement()) {
-        $arFields[] = $obFilterPages->GetProperties(); // Достаем свойства
-    }
-
-    foreach ($arFields as $item) {
-        // Создаем ключ в транслите для секции
-        $keySectionTag = Cutil::translit($item['SECTION_TAG']['VALUE'], "ru", array("replace_space"=>"_","replace_other"=>"_", "change_case"=>"U"));
-        $arResult['SECTIONS'][$keySectionTag]['NAME'] = $item['SECTION_TAG']['VALUE'];
-
-        // Добавляем элементы без шаблона
-        if ($item['PROP_FILTER']['DESCRIPTION'] != '{FILTER_VALUE}' && !empty($item['PROP_FILTER']['DESCRIPTION'])) {
-            // Делаем ссылку по шаблону
-            $transCode = \Cutil::translit($item['PROP_FILTER']['DESCRIPTION'], "ru", array("replace_space"=>"_","replace_other"=>"_"));
-            $link = mb_strtolower(str_ireplace("{filter_value}", $transCode, $item['NEW_SEF']['VALUE']));
-            $link = str_ireplace("#SECTION_CODE_PATH#/", $arResult['SECTION_PAGE_URL'], $link);
-
-            // Отправляем тег в массив
-            $arResult['SECTIONS'][$keySectionTag]['ITEMS'][] = array(
-                'NAME' => $item['NAME_TAG']['VALUE'],
-                'LINK' => $link
-              );
-        // Если это шаблонное значение
-        } else {
-            // Получаем значения которые есть у данного раздела
-            $rsProps = \CIBlockElement::GetList(array(), array(
-                  "IBLOCK_ID"=>\Orwo\Seotag\InitFilter::catalogIblockID(),
-                  "SECTION_ID" => $arResult['SECTION_ID'],
-                  "INCLUDE_SUBSECTIONS" => "Y"
-                ), array("PROPERTY_".$item['PROP_FILTER']['VALUE']));
-
-            while ($arProps = $rsProps->Fetch()) {
-                if (!empty($item['PROP_SLIDER']['VALUE'])) {
-                    // Манипуляции для выборки из ползунка только 0.5 - 1 - 2 и т.д
-                    // Округление в меньшую сторону 1.9 = 1
-                    if ($arProps['PROPERTY_'.$item['PROP_FILTER']['VALUE'].'_VALUE'] < 1) {
-                        $arRoundFiltered['0.5'] = $arProps['PROPERTY_'.$item['PROP_FILTER']['VALUE'].'_VALUE'];
-                    } else {
-                        $key = round($arProps['PROPERTY_'.$item['PROP_FILTER']['VALUE'].'_VALUE'], 0, PHP_ROUND_HALF_DOWN);
-                        $arRoundFiltered[$key] = $arProps['PROPERTY_'.$item['PROP_FILTER']['VALUE'].'_VALUE'];
-                    }
+        "IBLOCK_ID" => \Orwo\Seotag\InitFilter::seoIblockID(), // Из класса достаем ID сео инфоблока
+        "ACTIVE_DATE" => "Y",
+        "ACTIVE" => "Y", // Акивный
+        "PROPERTY_SET_TAG_VALUE" => "Y", // Получаем с активным чекбоксом тегирования
+        "PROPERTY_SET_ID_LIST" => $arResult['SECTION_ID'] // Есть URL раздела в списке
+      );
+    $dbFilterPages = \CIBlockElement::GetList(array("sort" => "desc"), $arFilterSeoPagesFilter, false, false, array("IBLOCK_ID", "ID", "NAME", 'PROPERTY_SECTION_TAG'));
+    while ($obFilterPages = $dbFilterPages->fetch()) {
+        // Ключ = транслит
+        if(!empty($obFilterPages['PROPERTY_SECTION_TAG_VALUE'])){
+          $keySectionTag = Cutil::translit($obFilterPages['PROPERTY_SECTION_TAG_VALUE'], "ru", array("replace_space"=>"_","replace_other"=>"_", "change_case"=>"U"));
+        }else{
+          $keySectionTag = $obFilterPages['ID'];
+        }
+        // Имя категории
+        if(!empty($obFilterPages['PROPERTY_SECTION_TAG_VALUE'])){
+        $arResult['SECTIONS'][$keySectionTag]['NAME'] = $obFilterPages['PROPERTY_SECTION_TAG_VALUE'];
+        }
+        // Собираем элементы Highload блока по разделам
+        foreach ($arItems as  $arValue) {
+            if ($arValue['UF_ID'] == $obFilterPages['ID']) {
+                if($arValue['UF_TOP'] == 1){
+                  $arResult['SECTIONS'][$keySectionTag]['IN_TOP'] = 'Y';
                 }
-                // Собираем массив
-                $arProperties[] = $arProps;
-            }
-
-
-            foreach ($arProperties as $arProps) {
-                if (!empty($arProps['PROPERTY_'.$item['PROP_FILTER']['VALUE'].'_VALUE'])) {
-                    $propValue = $arProps['PROPERTY_'.$item['PROP_FILTER']['VALUE'].'_VALUE'];
-                    // Делаем ссылку по шаблону
-                    $newFilterURL = \Cutil::translit($propValue, "ru", array("replace_space"=>"_","replace_other"=>"_"));
-
-                    if (!empty($item['PROP_SLIDER']['VALUE'])) {
-                        $oldFilterURL = mb_strtolower($item['PROP_FILTER']['VALUE'].'-to-'.$arProps['PROPERTY_'.$item['PROP_FILTER']['VALUE'].'_VALUE']);
-                        if ($keyNewUrl = array_search($arProps['PROPERTY_'.$item['PROP_FILTER']['VALUE'].'_VALUE'], $arRoundFiltered)) {
-                            $newFilterURL = $keyNewUrl;
-                            $arProps['PROPERTY_'.$item['PROP_FILTER']['VALUE'].'_VALUE'] = $newFilterURL;
-                        } else {
-                            continue;
-                        }
-                    }
-                    $link = mb_strtolower(str_ireplace("{filter_value}", $newFilterURL, $item['NEW_SEF']['VALUE']));
-                    $link = str_ireplace("#SECTION_CODE_PATH#/", $arResult['SECTION_PAGE_URL'], $link);
-                    // Для функции нам нужны значения
-                    $arPattern = array('FILTER_VALUE' =>  $arProps['PROPERTY_'.$item['PROP_FILTER']['VALUE'].'_VALUE']);
-
-                    $name = \Orwo\Seotag\InitFilter::getPattern($item['NAME_TAG']['VALUE'], $arPattern);
-
-                    $arResult['SECTIONS'][$keySectionTag]['ITEMS'][] = array(
-                        'VALUE' => $arProps['PROPERTY_'.$item['PROP_FILTER']['VALUE'].'_VALUE'],
-                        'NAME' => $name,
-                        'LINK' => $link,
-                      );
-                }
-            }
-
-            // Сортирвем ползунки
-            if (!empty($item['PROP_SLIDER']['VALUE'])) {
-                foreach ($arResult['SECTIONS'][$keySectionTag]['ITEMS'] as $key=>$arr) {
-                    $sortArray[$key]= $arr['VALUE'];
-                }
-                array_multisort($sortArray, SORT_NATURAL, $arResult['SECTIONS'][$keySectionTag]['ITEMS']);
+                $arResult['SECTIONS'][$keySectionTag]['ITEMS'][] =  array(
+                  'NAME' => $arValue['UF_TAG'],
+                  'LINK' => $arValue['UF_NEW'],
+                  'TOP' => $arValue['UF_TOP']
+                );
             }
         }
     }
+
     $this->IncludeComponentTemplate();
 }

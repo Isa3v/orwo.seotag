@@ -23,13 +23,13 @@ if ($moduleAccess >= "W"):
         ob_start();
         require_once($_SERVER["DOCUMENT_ROOT"]."/bitrix/modules/main/admin/group_rights.php");
         ob_end_clean();
-        print_r($_REQUEST);
         if (!empty($_REQUEST['seoIblockID'])) {
             Option::set($module_id, "seoIblockID", $_REQUEST['seoIblockID']);
         }
         if (!empty($_REQUEST['catalogIblockID'])) {
             Option::set($module_id, "catalogIblockID", $_REQUEST['catalogIblockID']);
         }
+
         if (strlen($_REQUEST["back_url_settings"]) > 0) {
             LocalRedirect($_REQUEST["back_url_settings"]);
         }
@@ -128,6 +128,7 @@ if ($moduleAccess >= "W"):
 	</select>
 	<br>
 	<?/* [end IBLOCK SEO OPTIONS] */?>
+
 
 
 	<?/* [SITEMAP GENERATE] */?>

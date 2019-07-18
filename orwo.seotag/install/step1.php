@@ -32,5 +32,10 @@ BX.ready(function() {
   <?}?>
   </select>
   <span data-hint="<?=Loc::getMessage("INSTALL_STEP1_TEXT")?>"></span>
+
+  <p> <?=Loc::getMessage("INSTALL_STEP12")?> <span data-hint="<?=Loc::getMessage("INSTALL_STEP12_TEXT")?>"></span> </p>
+  <input type="text" size="100" name="filterSef" value="#SECTION_CODE_PATH#/filter/#SMART_FILTER_PATH#/apply/" placeholder="#SECTION_CODE_PATH#/filter/#SMART_FILTER_PATH#/apply/">
+
+
   <input type="submit" name="" value="<?=Loc::getMessage("INSTALL_SUBMIT"); ?>">
   </form>

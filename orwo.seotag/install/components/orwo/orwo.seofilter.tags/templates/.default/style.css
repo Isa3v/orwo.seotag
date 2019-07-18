@@ -1,0 +1,21 @@
+.stags {
+  display: flex;
+  flex-wrap: wrap;
+  margin-bottom: .5em;
+}
+
+.stags__section {
+  flex: 1 0 0;
+}
+
+.stags__title {
+  font-weight: 700;
+  flex-basis: 20%;
+  width: 20%;
+  min-width: 250px;
+}
+
+.stags__item {
+  display: inline-block;
+  padding: 0 .5em;
+}
