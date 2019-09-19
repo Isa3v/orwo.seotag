@@ -55,8 +55,8 @@ class orwo_seotag extends CModule
             // Подмена URL
             $eventManager->registerEventHandler("main", "OnPageStart", $this->MODULE_ID, "\Orwo\Seotag\InitFilter", "searchRewrite");
             // Часть действий сбрасываем на обработчик обновления/добавления
-            $eventManager->registerEventHandler("iblock", "OnBeforeIBlockElementUpdate", $this->MODULE_ID, "\Orwo\Seotag\CreateLinks", "beforetUpdate");
-            $eventManager->registerEventHandler("iblock", "OnAfterIBlockElementAdd", $this->MODULE_ID, "\Orwo\Seotag\CreateLinks", "afterAdd");
+            $eventManager->registerEventHandler("iblock", "OnBeforeIBlockElementUpdate", $this->MODULE_ID, "\Orwo\Seotag\CreateLinks", "beforetUpdateElement");
+            $eventManager->registerEventHandler("iblock", "OnAfterIBlockElementAdd", $this->MODULE_ID, "\Orwo\Seotag\CreateLinks", "beforetUpdateElement");
             // Подмена Мета-тегов
             $eventManager->registerEventHandler("main", "OnEpilog", $this->MODULE_ID, '\Orwo\Seotag\InitFilter', "addMeta", 10);
             // Дабавляем на панель администрирования кнопки
