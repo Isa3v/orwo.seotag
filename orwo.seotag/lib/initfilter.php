@@ -158,7 +158,6 @@ class InitFilter
         $request = Context::getCurrent()->getRequest();
         $uri = new Uri($request->getRequestUri());
         $curPage = $uri->getPath();
-        global $USER;
 
         // Получаем фильтры
         $arFilter = self::getFilter();
@@ -178,7 +177,6 @@ class InitFilter
             // Запрашиваем шаблоны мета-тегов из SEO Инфоблока
             $resMeta  = new \Bitrix\Iblock\InheritedProperty\ElementValues(self::seoIblockID(), $seoItem["ID"]);
             $seoItem["META_TAGS"] = $resMeta->getValues();
-            $seoFilter['VALUE_PATTERN'] = $arRes['UF_TAG'];
 
             global $APPLICATION;
             // canonical
