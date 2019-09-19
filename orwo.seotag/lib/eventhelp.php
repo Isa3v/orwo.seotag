@@ -1,4 +1,5 @@
 <?php
+
 namespace Orwo\Seotag;
 
 use Bitrix\Main\Loader;
@@ -32,21 +33,21 @@ class EventHelp extends \Orwo\Seotag\InitFilter
                 $editIblock,
                 $editID,
                 0,
-                array("SECTION_BUTTONS"=>false, "SESSID"=>false)
+                array("SECTION_BUTTONS" => false, "SESSID" => false)
             );
             if ($arButtons["edit"]["edit_element"]["ACTION"]) {
                 $APPLICATION->AddPanelButton(
                     array(
-                      "ID" => "3001", //определяет уникальность кнопки
-                      "TYPE" => "BIG",
-                      "TEXT" => "Редактировать SEO — фильтр",
-                      "MAIN_SORT" => 3000, //индекс сортировки для групп кнопок
-                      "SORT" => 1, //сортировка внутри группы
-                      "HREF" => $arButtons["edit"]["edit_element"]["ACTION"], //или javascript:MyJSFunction())
-                      "ICON" => "bx-panel-site-wizard-icon", //название CSS-класса с иконкой кнопки
+                        "ID" => "3001", //определяет уникальность кнопки
+                        "TYPE" => "BIG",
+                        "TEXT" => "Редактировать SEO — фильтр",
+                        "MAIN_SORT" => 3000, //индекс сортировки для групп кнопок
+                        "SORT" => 1, //сортировка внутри группы
+                        "HREF" => $arButtons["edit"]["edit_element"]["ACTION"], //или javascript:MyJSFunction())
+                        "ICON" => "bx-panel-site-wizard-icon", //название CSS-класса с иконкой кнопки
                     ),
                     $bReplace = false //заменить существующую кнопку?
-                  );
+                );
             }
         }
     }
@@ -65,14 +66,14 @@ class EventHelp extends \Orwo\Seotag\InitFilter
 
     public function getHelpTabs($arArgs)
     {
-        return [["DIV" => "elementsTab", "TAB" => "Настройки ссылок",'TITLE' => "Список сгенерированных ссылок"], ["DIV" => "helpTab", "TAB" => "Документация"]];
+        return [["DIV" => "elementsTab", "TAB" => "Настройки ссылок", 'TITLE' => "Список сгенерированных ссылок"], ["DIV" => "helpTab", "TAB" => "Документация"]];
     }
 
     public function showHelpTab($divName, $arArgs, $bVarsFromForm)
     {
         $seoHighloadID = \Orwo\Seotag\InitFilter::seoHighloadID();
         // Создаем сущность для работы с блоком:
-         \Bitrix\Main\UI\Extension::load("ui.alerts");
+        \Bitrix\Main\UI\Extension::load("ui.alerts");
         if (\Bitrix\Main\Loader::includeModule('highloadblock')) {
             $arHLBlock = \Bitrix\Highloadblock\HighloadBlockTable::getById($seoHighloadID)->fetch();
             $obEntity = \Bitrix\Highloadblock\HighloadBlockTable::compileEntity($arHLBlock);
@@ -80,10 +81,10 @@ class EventHelp extends \Orwo\Seotag\InitFilter
             $rsMap = $strEntityDataClass;
             //Получение списка:
             $rsData = $strEntityDataClass::getList(array(
-              'select' => array('*'),
-              'filter' => array('UF_ID' => $arArgs['ID'])
+                'select' => array('*'),
+                'filter' => array('UF_ID' => $arArgs['ID'])
             ));
-            $columnFields = $GLOBALS['USER_FIELD_MANAGER']->GetUserFields('HLBLOCK_'.$seoHighloadID, 0, LANGUAGE_ID);
+            $columnFields = $GLOBALS['USER_FIELD_MANAGER']->GetUserFields('HLBLOCK_' . $seoHighloadID, 0, LANGUAGE_ID);
         }
 
         if ($divName == "helpTab") {
@@ -91,37 +92,37 @@ class EventHelp extends \Orwo\Seotag\InitFilter
             </script><script>document.querySelector(".gist-meta").innerHTML = "Original Works";</script></td></tr>';
         }
         if ($divName == "elementsTab") {
-          if($arArgs['ID'] != 0){
-            $arHeaders[] = ["id" => 'ID',  "content" => 'ID',  "default" => "true"];
-            foreach ($columnFields as $key => $value) {
-                $arHeaders[]= ["id" => $key, "content" => $value['EDIT_FORM_LABEL'], "default" => "true"];
-            }
-            $lAdmin = new \CAdminList('hlsef');
-            $lAdmin->AddHeaders($arHeaders);
+            if ($arArgs['ID'] != 0) {
+                $arHeaders[] = ["id" => 'ID',  "content" => 'ID',  "default" => "true"];
+                foreach ($columnFields as $key => $value) {
+                    $arHeaders[] = ["id" => $key, "content" => $value['EDIT_FORM_LABEL'], "default" => "true"];
+                }
+                $lAdmin = new \CAdminList('hlsef');
+                $lAdmin->AddHeaders($arHeaders);
 
-            while ($arHighloadItem = $rsData->Fetch()) {
-                $arActions = array();
-                $arHighloadItem['UF_OLD'] = urldecode($arHighloadItem['UF_OLD']);
-                $row =&  $lAdmin->AddRow($arHighloadItem['ID'], $arHighloadItem);
-                $arActions[] = array(
-                  "ICON"=>"edit",
-                  "DEFAULT"=>true,
-                  "TEXT"=> 'Изменить',
-                  "ACTION"=> "(new BX.CAdminDialog({'content_url':'/bitrix/admin/highloadblock_row_edit.php?ENTITY_ID=".$seoHighloadID."&ID=".$arHighloadItem['ID']."&lang=ru&mode=list&bxpublic=Y'})).Show();"
-                );
-                $arActions[] = array(
-                  "TEXT"=> 'Открыть',
-                  "ACTION"=>"BX.adminPanel.Redirect([], 'highloadblock_row_edit.php?&ENTITY_ID=".$seoHighloadID."&ID=".$arHighloadItem['ID']."', event)"
-                );
-                $row->AddActions($arActions);
-            }
-            echo '<tr><td>';
-            echo '<div class="ui-alert ui-alert-icon-info ui-alert-xs">
+                while ($arHighloadItem = $rsData->Fetch()) {
+                    $arActions = array();
+                    $arHighloadItem['UF_OLD'] = urldecode($arHighloadItem['UF_OLD']);
+                    $row = &$lAdmin->AddRow($arHighloadItem['ID'], $arHighloadItem);
+                    $arActions[] = array(
+                        "ICON" => "edit",
+                        "DEFAULT" => true,
+                        "TEXT" => 'Изменить',
+                        "ACTION" => "(new BX.CAdminDialog({'content_url':'/bitrix/admin/highloadblock_row_edit.php?ENTITY_ID=" . $seoHighloadID . "&ID=" . $arHighloadItem['ID'] . "&lang=ru&mode=list&bxpublic=Y'})).Show();"
+                    );
+                    $arActions[] = array(
+                        "TEXT" => 'Открыть',
+                        "ACTION" => "BX.adminPanel.Redirect([], 'highloadblock_row_edit.php?&ENTITY_ID=" . $seoHighloadID . "&ID=" . $arHighloadItem['ID'] . "', event)"
+                    );
+                    $row->AddActions($arActions);
+                }
+                echo '<tr><td>';
+                echo '<div class="ui-alert ui-alert-icon-info ui-alert-xs">
                     <span class="ui-alert-message"><strong>Обновления значений!</strong> Для того, чтобы значения ссылки не перезаписалась используйте свойство <i>"Не перезаписывать"</i> в редактировании ссылки</span>
                   </div>';
 
-            $lAdmin->DisplayList();
-            echo '<br>
+                $lAdmin->DisplayList();
+                echo '<br>
             <div class="ui-alert ui-alert-warning ui-alert-icon-danger ui-alert-xs">
               <span class="ui-alert-message">
               <strong>Перезапись ссылок:</strong>
@@ -129,42 +130,8 @@ class EventHelp extends \Orwo\Seotag\InitFilter
               <label class="adm-designed-checkbox-label" for="recteate" title=""></label>
               <span> Если активировать чекбокс, все ссылки, за исключением ссылок с параметром <i>"Не перезаписывать"</i>, будут удалены и сгенерированны заново.</span>
             </div>';
-            echo '</td></td>';
-          }
-        }
-    }
-
-    /**
-     * [controllerTabs эвент табов. Можно изменить форму редактирвания]
-     */
-
-    public function controllerTabs(&$TabControl)
-    {
-        if ($TabControl->customTabber->arArgs['IBLOCK']['ID'] == parent::seoIblockID()) {
-            global $APPLICATION;
-
-            if ($advKey = array_search('seo_adv_seo_adv', array_column($TabControl->tabs, 'DIV'))) {
-                // За одно уберем вкладку реклама
-                $TabControl->tabs[$advKey] = false;
+                echo '</td></td>';
             }
-
-            /*  //  global $APPLICATION;
-              //  $APPLICATION->RestartBuffer();
-              //echo '<pre>';
-              $arInput = $TabControl->arFields;
-              foreach ($arInput as $key => $input) {
-                  $html = '
-                  <tr><td></td>
-                    <td>
-                    <div class="ui-alert ui-alert-primary ui-alert-xs">
-                    <span class="ui-alert-message"><strong>Внимание!</strong> При обновлении ссылок, все ссылки данного условия, включая созданные вручную, будут удалены!</span>
-                    </div>
-                    </td>
-                  </tr>';
-                  $TabControl->arFields[$key]['custom_html']  = $html.$input['custom_html'];
-              }
-              //die();
-              */
         }
     }
 
@@ -174,12 +141,12 @@ class EventHelp extends \Orwo\Seotag\InitFilter
     public function propFilterInit()
     {
         return array(
-        'PROPERTY_TYPE'           => 'S',
-        'USER_TYPE'               => 'propFilterInit',
-        'DESCRIPTION'             => 'Условия свойств (SEO filter)',
-        'GetPropertyFieldHtml'    => array(__CLASS__, 'getHtmlpropFilter'),
+            'PROPERTY_TYPE'           => 'S',
+            'USER_TYPE'               => 'propFilterInit',
+            'DESCRIPTION'             => 'Условия свойств (SEO filter)',
+            'GetPropertyFieldHtml'    => array(__CLASS__, 'getHtmlpropFilter'),
 
-      );
+        );
     }
     /**
      * [getHtmlpropFilter Внешний вид кастомного свойства]
@@ -187,16 +154,16 @@ class EventHelp extends \Orwo\Seotag\InitFilter
     public function getHtmlpropFilter($arProperty, $value, $strHTMLControlName)
     {
         $html = '<div style="margin-bottom: .5rem;">';
-        $html .= '<input id="seo-inp-val" class="adm-input seo-inp-val" list="seo-inp-val-select" placeholder="Код свойства"  name="'.$strHTMLControlName['VALUE'].'" value="'.$value['VALUE'].'"><datalist id="seo-inp-val-select">';
+        $html .= '<input id="seo-inp-val" class="adm-input seo-inp-val" list="seo-inp-val-select" placeholder="Код свойства"  name="' . $strHTMLControlName['VALUE'] . '" value="' . $value['VALUE'] . '"><datalist id="seo-inp-val-select">';
         $resPropertyCatalog = \CIBlockProperty::GetList([], array('IBLOCK_ID' => parent::catalogIblockID()));
         while ($prop = $resPropertyCatalog->Fetch()) {
-          if ($prop['USER_TYPE'] != 'directory' && $prop['PROPERTY_TYPE'] != 'F') {
-            $html .= '<option value="'.$prop['CODE'].'" label="'.$prop['NAME'].'" data-type="'.$prop['PROPERTY_TYPE'].'"></option>';
-          }
+            if ($prop['USER_TYPE'] != 'directory' && $prop['PROPERTY_TYPE'] != 'F') {
+                $html .= '<option value="' . $prop['CODE'] . '" label="' . $prop['NAME'] . '" data-type="' . $prop['PROPERTY_TYPE'] . '"></option>';
+            }
         }
         $html .= '</datalist>';
         $html .= '<span> Значение свойства: </span>';
-        $html .= '<input id="seo-inp-desc" class="adm-input seo-inp-desc" type="text" placeholder="Значение свойства" list="seo-inp-select" name="'.$strHTMLControlName['DESCRIPTION'].'" value="'.$value['DESCRIPTION'].'">';
+        $html .= '<input id="seo-inp-desc" class="adm-input seo-inp-desc" type="text" placeholder="Значение свойства" list="seo-inp-select" name="' . $strHTMLControlName['DESCRIPTION'] . '" value="' . $value['DESCRIPTION'] . '">';
         $html .= '<datalist id="seo-inp-select"><option value="{FILTER_VALUE}" label="Любое из значений (По шаблону)"></option>';
         $html .= '</datalist>';
         $html .= '</div>';
@@ -216,7 +183,7 @@ class EventHelp extends \Orwo\Seotag\InitFilter
             }
             if ($value['section'] == 'highloadblock') {
                 $seoHighloadID = \Orwo\Seotag\InitFilter::seoHighloadID();
-                $searchUrl = 'highloadblock_rows_list.php?ENTITY_ID='.$seoHighloadID.'&lang=ru';
+                $searchUrl = 'highloadblock_rows_list.php?ENTITY_ID=' . $seoHighloadID . '&lang=ru';
                 $navHighload = $key;
             }
         }
