@@ -2,8 +2,6 @@
 
 namespace Orwo\Seotag;
 
-use Bitrix\Main\Loader;
-use Bitrix\Main\Page\Asset;
 use Bitrix\Main\Application;
 use Bitrix\Main\Web\Uri;
 use Bitrix\Main\Context;
@@ -114,8 +112,8 @@ class InitFilter
             // Если есть редирект
             if ($originalCurPage['UF_REDIRECT'] == 1) {
                 // Проверяем есть ли get параметры
-                if (!empty($uri->getQuery())) {
-                    LocalRedirect($originalCurPage['UF_NEW'] . '?' . $uri->getQuery(), false, '301 Moved permanently');
+                if (!empty($query)) {
+                    LocalRedirect($originalCurPage['UF_NEW'] . '?' . $query, false, '301 Moved permanently');
                 } else {
                     LocalRedirect($originalCurPage['UF_NEW'], false, '301 Moved permanently');
                 }
@@ -136,7 +134,6 @@ class InitFilter
         $context = Context::getCurrent();
         $request = $context->getRequest();
         $uri = new Uri($request->getRequestUri());
-        $curPage = $uri->getPath();
         if (!empty($contentLink) && !empty($newLink)) {
             $server = $context->getServer();
             $server_array = $server->toArray();
@@ -216,7 +213,7 @@ class InitFilter
             return false;
         }
         // Получаем данные активных фильтров
-        foreach ($seoFilter['ITEMS'] as $keySection => $arItem) {
+        foreach ($seoFilter['ITEMS'] as $arItem) {
             foreach ($arItem['VALUES'] as $kItem => $vItem) {
 
                 // Выбранные фильтры
@@ -239,7 +236,7 @@ class InitFilter
         // Создаем паттерны для замены {FILTER_VALUE} и т.д.
         // Для выбора паттерна в шаблонах
         if (!empty($seoFilter['ACTIVE_FILTER'])) {
-            foreach ($seoFilter['ACTIVE_FILTER']['VALUES'] as $k => $arPattern) {
+            foreach ($seoFilter['ACTIVE_FILTER']['VALUES'] as $arPattern) {
                 $numFilter = 0;
                 foreach ($arPattern as $key => $value) {
                     $seoFilter['VALUE_PATTERN'][$key . '|' . $numFilter] = $value;
