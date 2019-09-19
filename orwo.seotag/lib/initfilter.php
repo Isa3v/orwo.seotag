@@ -1,4 +1,5 @@
 <?php
+
 namespace Orwo\Seotag;
 
 use Bitrix\Main\Loader;
@@ -42,7 +43,7 @@ class InitFilter
      * @param  [type] $oldLink [если true, то ищет по оригинальной ссылке]
      * @return [type]          [Массив с данными о ссылке]
      */
-    public function getLink($link=null, $oldLink = false)
+    public function getLink($link = null, $oldLink = false)
     {
         $tableName = self::seoHighloadTable();
         if ($oldLink == true) {
@@ -54,7 +55,7 @@ class InitFilter
         // то обезопасим запрос через sqlhelper
         $sqlHelper = Application::getConnection()->getSqlHelper();
         $searchLink = $link;
-        $arResult = Application::getConnection()->query("SELECT * FROM `".$tableName."` WHERE `".$whereIs."` = '".$sqlHelper->forSql($searchLink)."'", 1)->fetchRaw();
+        $arResult = Application::getConnection()->query("SELECT * FROM `" . $tableName . "` WHERE `" . $whereIs . "` = '" . $sqlHelper->forSql($searchLink) . "'", 1)->fetchRaw();
 
         return $arResult;
     }
@@ -66,7 +67,7 @@ class InitFilter
     {
         $tableName = self::seoHighloadTable();
         $sqlHelper = Application::getConnection()->getSqlHelper();
-        $arResult = Application::getConnection()->query("SELECT * FROM `".$tableName."` WHERE `UF_ACTIVE` =  1")->fetchAll();
+        $arResult = Application::getConnection()->query("SELECT * FROM `" . $tableName . "` WHERE `UF_ACTIVE` =  1")->fetchAll();
         return $arResult;
     }
 
@@ -77,7 +78,7 @@ class InitFilter
         }
         $tableName = self::seoHighloadTable();
         $sqlHelper = Application::getConnection()->getSqlHelper();
-        $arResult = Application::getConnection()->query("DELETE FROM `".$tableName."` WHERE `UF_ACTIVE` =  1 AND `UF_ID` = '".$sqlHelper->forSql($ID)."' AND (`UF_NOT_UPDATE` IS NULL OR `UF_NOT_UPDATE` = 0)");
+        $arResult = Application::getConnection()->query("DELETE FROM `" . $tableName . "` WHERE `UF_ACTIVE` =  1 AND `UF_ID` = '" . $sqlHelper->forSql($ID) . "' AND (`UF_NOT_UPDATE` IS NULL OR `UF_NOT_UPDATE` = 0)");
         return true;
     }
 
@@ -88,7 +89,7 @@ class InitFilter
         }
         $tableName = self::seoHighloadTable();
         $sqlHelper = Application::getConnection()->getSqlHelper();
-        $arResult = Application::getConnection()->query("DELETE FROM `".$tableName."` WHERE `ID` = '".$sqlHelper->forSql($ID)."' AND (`UF_NOT_UPDATE` IS NULL OR `UF_NOT_UPDATE` = 0)");
+        $arResult = Application::getConnection()->query("DELETE FROM `" . $tableName . "` WHERE `ID` = '" . $sqlHelper->forSql($ID) . "' AND (`UF_NOT_UPDATE` IS NULL OR `UF_NOT_UPDATE` = 0)");
         return true;
     }
 
@@ -114,7 +115,7 @@ class InitFilter
             if ($originalCurPage['UF_REDIRECT'] == 1) {
                 // Проверяем есть ли get параметры
                 if (!empty($uri->getQuery())) {
-                    LocalRedirect($originalCurPage['UF_NEW'].'?'.$uri->getQuery(), false, '301 Moved permanently');
+                    LocalRedirect($originalCurPage['UF_NEW'] . '?' . $uri->getQuery(), false, '301 Moved permanently');
                 } else {
                     LocalRedirect($originalCurPage['UF_NEW'], false, '301 Moved permanently');
                 }
@@ -165,9 +166,6 @@ class InitFilter
             // Дальше не продолжаем, если не получили переменную
             return false;
         }
-        if($USER->IsAdmin()){
-          print_r($arFilter['VALUE_PATTERN']);
-        }
         // Если найден ключ с ссылкой OLD настоящая ссылка всегда идет в curpage
         $originalCurPage = self::getLink($curPage, true);
         if (!empty($originalCurPage)) {
@@ -177,9 +175,6 @@ class InitFilter
             while ($obFilterPages = $dbFilterPages->GetNextElement()) {
                 $seoItem = $obFilterPages->GetFields();
             }
-
-
-
             // Запрашиваем шаблоны мета-тегов из SEO Инфоблока
             $resMeta  = new \Bitrix\Iblock\InheritedProperty\ElementValues(self::seoIblockID(), $seoItem["ID"]);
             $seoItem["META_TAGS"] = $resMeta->getValues();
@@ -187,7 +182,7 @@ class InitFilter
 
             global $APPLICATION;
             // canonical
-            $canonical = ($request->isHttps() == true ? "https://" : "http://").$_SERVER['HTTP_HOST'].$originalCurPage['UF_NEW'];
+            $canonical = ($request->isHttps() == true ? "https://" : "http://") . $_SERVER['HTTP_HOST'] . $originalCurPage['UF_NEW'];
             $APPLICATION->SetPageProperty('canonical', $canonical);
 
             // title
@@ -249,7 +244,7 @@ class InitFilter
             foreach ($seoFilter['ACTIVE_FILTER']['VALUES'] as $k => $arPattern) {
                 $numFilter = 0;
                 foreach ($arPattern as $key => $value) {
-                    $seoFilter['VALUE_PATTERN'][$key.'|'.$numFilter] = $value;
+                    $seoFilter['VALUE_PATTERN'][$key . '|' . $numFilter] = $value;
                     // дефолтные значения
                     if (!empty($value)) {
                         $seoFilter['VALUE_PATTERN'][$key] = $value;
@@ -283,9 +278,8 @@ class InitFilter
             }
         }
         foreach ($arPattern as $k => $v) {
-            $string =  str_ireplace('{'.$k.'}', $v, $string);
+            $string =  str_ireplace('{' . $k . '}', $v, $string);
         }
         return $string;
     }
-    
 }
