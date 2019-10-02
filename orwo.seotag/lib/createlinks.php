@@ -24,7 +24,6 @@ class CreateLinks extends \Orwo\Seotag\InitFilter
         }
 
         $paramTranslitURL = array("replace_space" => "_", "replace_other" => "_");
-
         /**
          * @var $arPropsEvent - массив с ключем кодом свойств, вместо ID
          */
@@ -62,6 +61,16 @@ class CreateLinks extends \Orwo\Seotag\InitFilter
             parent::delAllLinks($arFields['ID']);
         }
 
+        // Событие перед записью ссылок
+        $event = new \Bitrix\Main\Event("orwo.seotag", "OnPropLinkCreate", [$arPropsEvent]);
+        $event->send();
+        foreach ($event->getResults() as $eventResult) {
+            if ($eventResult->getType() == \Bitrix\Main\EventResult::ERROR) { // если обработчик вернул ошибку, ничего не делаем
+                continue;
+            }
+            $arPropsEvent = $eventResult->getParameters();
+        }
+
         /**
          * [Берем первый элемент из массива через reset]
          * @var $newTagSef  -  [Берем новое правило формирование URL]
@@ -87,17 +96,13 @@ class CreateLinks extends \Orwo\Seotag\InitFilter
                 }
             }
         }
+   
 
-
-        $arLinkResult = [];
+        $arLink = [];
         /**
          * [Работа с подготовленными данными]
          */
         foreach ($urlList as $compliteURL) {
-            /**
-             * [$link - массив с данными для создание ссылки]
-             */
-            $arLink = [];
             $link['ID_CAT'] = $arFields['ID'];
             $link['REDIRECT'] = (!empty($arPropsEvent['REDIRECT']) ? 1 : 0);
             $link['SECTION_ID'] = $compliteURL['ID'];
@@ -183,7 +188,6 @@ class CreateLinks extends \Orwo\Seotag\InitFilter
             // т.к мы работаем в режиме AND
             if (!empty($arProperties) && count($arProperties) == $count) {
 
-                // Работаем с массивом параметров
                 // Выборка уникальных значений
                 $arUniqProps = self::uniqLinks($arProperties);
                 // Сгенерированные ссылки проверяем на наличие элементов
@@ -227,15 +231,29 @@ class CreateLinks extends \Orwo\Seotag\InitFilter
                             $link['OLD_LINK'] = str_ireplace("#SMART_FILTER_PATH#", $oldFilterURL . "/#SMART_FILTER_PATH#", $link['OLD_LINK']);
                             $link['NEW_LINK'] = str_ireplace(["{FILTER_VALUE}", "{FILTER_CODE}"], [$newFilterURL, mb_strtolower($prop['CODE'])], $link['NEW_LINK']);
 
-                            $arLink[$keyUniq] = $link;
+                            $arLink[] = $link;
                         }
                     }
                 }
             }
-
-            // Отдаем массив с сылками раздела на запись.
-            $arLinkResult = self::setHighloadLinks($arLink, $arFields['ID'], $arLinkResult);
         }
+
+        foreach ($arLink as $key => $item) {
+            // Удаляем остатки от генерации
+            $arLink[$key]['OLD_LINK'] = str_replace("/#SMART_FILTER_PATH#", '', $item['OLD_LINK']);
+            $arLink[$key]['NEW_LINK'] = str_replace("{FILTER_VALUE}", '', $item['NEW_LINK']);
+        }
+        // Событие перед записью ссылок
+        $event = new \Bitrix\Main\Event("orwo.seotag", "OnBeforeLinkAdd", [$arLink]);
+        $event->send();
+        foreach ($event->getResults() as $eventResult) {
+            if ($eventResult->getType() == \Bitrix\Main\EventResult::ERROR) { // если обработчик вернул ошибку, ничего не делаем
+                continue;
+            }
+            $arLink = $eventResult->getParameters();
+        }
+        // Отдаем массив с сылками раздела на запись.
+        self::setHighloadLinks($arLink, $arFields['ID']);
     }
 
 
@@ -243,7 +261,7 @@ class CreateLinks extends \Orwo\Seotag\InitFilter
      * [setHighloadLinks Запись ссылок в highloadblock]
      * @param array $arLink [description]
      */
-    public function setHighloadLinks($arLink = [], $seoElemenID = '', $arCreatedLinks = [])
+    public function setHighloadLinks($arLink = [], $seoElemenID = '')
     {
         // Подключаем класс Highload блока
         $hldata   = \Bitrix\Highloadblock\HighloadBlockTable::getById(parent::seoHighloadID())->fetch();
@@ -253,17 +271,12 @@ class CreateLinks extends \Orwo\Seotag\InitFilter
             $arCreatedLinks = $highloadClass::getList(array('filter' => array('UF_ID' => $seoElemenID)))->fetchAll();
         }
 
-
-        foreach ($arLink as $key => $item) {
+        foreach ($arLink as $item) {
             $keyUpdate = '';
             $resultAddHL = [];
-            // Удаляем остатки от генерации
-            $item['OLD_LINK'] = str_replace("/#SMART_FILTER_PATH#", '', $item['OLD_LINK']);
-            $item['NEW_LINK'] = str_replace("{FILTER_VALUE}", '', $item['NEW_LINK']);
-
+            
             // Если такая ссылка уже существует в другом условии
             if ($checkLink = parent::getLink($item['NEW_LINK'])) {
-
                 if ($checkLink['UF_ID'] != $item['ID_CAT']) {
                     // Удаляем ссылку из другого источника
                     if ($checkLink['UF_NOT_UPDATE'] != 1) {
@@ -293,6 +306,7 @@ class CreateLinks extends \Orwo\Seotag\InitFilter
             if (empty($item)) {
                 continue;
             }
+            
             $resultAddHL = array(
                 "UF_ACTIVE"   => 1,
                 'UF_OLD'      => $item['OLD_LINK'],
