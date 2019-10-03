@@ -1,18 +1,17 @@
 ### Установка
+- Папку `orwo.seotag` поместить в `/local/modules/` или `/bitrix/modules/`
+- Переходим в раздел `Установленные решения` (`/bitrix/admin/partner_modules.php`) и устанавливаем модуль
+- В процессе установке нужно будет выбрать инфоблок каталога. 
 ---
-![Image](https://github.com/Isa3v/filterSeoTag/blob/master/installstep1.png?raw=true)
-![Image](https://github.com/Isa3v/filterSeoTag/blob/master/installstep2.png?raw=true)
-![Image](https://github.com/Isa3v/filterSeoTag/blob/master/installstep3.png?raw=true)
----
+
 ### Настройки перед работой. 
----
 - В шаблоне умного фильтра, например: `/components/bitrix/catalog.smart.filter/`, в файл `result_modifier.php` в конце добавить:
 ```php
 global $seoFilter;
 $seoFilter = $arResult;
 ```
 - После установки в папке `/bitrix/components/orwo/` - появится компонент для вывода блока тегов.  
-  Желательно размещать его в `/components/bitrix/catalog/main/шаблон/section.php`.   
+  Размещаем его в шаблоне компонента каталога  
   Код для подключения 
 ```php
 <?$APPLICATION->IncludeComponent(
@@ -27,16 +26,15 @@ $seoFilter = $arResult;
 - В настройках модуля можно добавить сгенерированные ссылки в карту сайта.
 - В настройках можно изменить ID инфоблока для каталога и для SEO.
 ---
----
+
 ![Image](https://github.com/Isa3v/filterSeoTag/blob/master/readme.png?raw=true)
 ---
 
-### Шаблоны мета-тегов
----
-- `{FILTER_VALUE}` — Первый элемент (Всегда идет по дефолту). 
-- `{FILTER_VALUE|0}` —  Если фильтр множественный (`/filter/brend-is-abac-or-comprag-or-remeza/apply/`), то свойства abac, comprag, remeza будут собраны в массив. Ключи начинаются с "0". 
-> Например, что-бы получить remeza, нужно использовать `{FILTER_VALUE|2}` в шаблоне.
-- `{SECTION_NAME}` —  имя категории к которой прендлежит фильтр.
+#### Шаблоны мета-тегов
+- `{FILTER_VALUE}` — Первый элемент (Всегда идет по дефолту)
+- `{FILTER_VALUE|0}` —  Если фильтр множественный (`/filter/brend-is-abac-or-comprag-or-remeza/apply/`)
+> Например, что-бы получить remeza, нужно использовать `{FILTER_VALUE|2}` в шаблоне
+- `{SECTION_NAME}` —  имя категории к которой прендлежит фильтр
 #### Модификторы:
 - `{CAPITALIZE_FILTER_VALUE}` —  Первая буква заглавная, остальные маленькие,
 - `{LOWER_FILTER_VALUE}` —  Нижний регистр
