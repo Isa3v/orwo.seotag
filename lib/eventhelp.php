@@ -88,8 +88,30 @@ class EventHelp extends \Orwo\Seotag\InitFilter
         }
 
         if ($divName == "helpTab") {
+            // Чтоб знать версию модуля
+            include(__DIR__ . "/../install/version.php");
+            echo '
+            <div class="ui-alert ui-alert-icon-info ui-alert-xs">
+                <span class="ui-alert-message"><strong>Версия модуля:</strong> v'.$arModuleVersion['VERSION'].'</span>
+            </div>';
             echo '<tr><td style="padding: 5px;"><script src="//gist.github.com/Isa3v/e20394135dac1a5925e61cfd75c81cfa.js">
             </script><script>document.querySelector(".gist-meta").innerHTML = "Original Works";</script></td></tr>';
+            // Целый файл нет смысла делать ради 2 стилей
+            echo '<style> 
+            .input_seo__prop{position: relative;}
+            .input_seo__prop:before{
+                content: "AND";
+                display: inline-block;
+                font-size: .7rem;
+                padding: .3em;
+                background: #e0e8ea;
+                border-radius: 5px;
+                position: absolute;
+                margin-top: 2em;
+                left: -3em;
+                top: 0;
+            }
+            </style>';
         }
         if ($divName == "elementsTab") {
             if ($arArgs['ID'] != 0) {
@@ -114,22 +136,34 @@ class EventHelp extends \Orwo\Seotag\InitFilter
                         "TEXT" => 'Открыть',
                         "ACTION" => "BX.adminPanel.Redirect([], 'highloadblock_row_edit.php?&ENTITY_ID=" . $seoHighloadID . "&ID=" . $arHighloadItem['ID'] . "', event)"
                     );
+                    $arActions[] = array(
+                        "ICON" => "copy",
+                        "TEXT" => 'Копировать',
+                        "ACTION" => "BX.adminPanel.Redirect([], 'highloadblock_row_edit.php?&ENTITY_ID=" . $seoHighloadID . "&ID=" . $arHighloadItem['ID'] . "&action=copy', event)"
+                    );
+                    $arActions[] = array(
+                        "ICON" => "delete",
+                        "TEXT" => 'Удалить',
+                        "ACTION" => "if (confirm('Удалить запись?')) 
+                         BX.adminPanel.Redirect([], 'highloadblock_row_edit.php?action=delete&ENTITY_ID=" . $seoHighloadID . "&ID=" . $arHighloadItem['ID'] . "&lang=ru&".bitrix_sessid_get()."', event)"
+                    );
                     $row->AddActions($arActions);
                 }
                 echo '<tr><td>';
-                echo '<div class="ui-alert ui-alert-icon-info ui-alert-xs">
-                    <span class="ui-alert-message"><strong>Обновления значений!</strong> Для того, чтобы значения ссылки не перезаписалась используйте свойство <i>"Не перезаписывать"</i> в редактировании ссылки</span>
-                  </div>';
+                echo '
+                <div class="ui-alert ui-alert-icon-info ui-alert-xs">
+                <span class="ui-alert-message"><strong>Обновления значений!</strong> Для того, чтобы значения ссылки не перезаписалась используйте свойство <i>"Не перезаписывать"</i> в редактировании ссылки</span>
+                </div>';
 
                 $lAdmin->DisplayList();
                 echo '<br>
-            <div class="ui-alert ui-alert-warning ui-alert-icon-danger ui-alert-xs">
-              <span class="ui-alert-message">
-              <strong>Перезапись ссылок:</strong>
-              <input type="checkbox" name="recteate" value="1" id="recteate" class="adm-designed-checkbox">
-              <label class="adm-designed-checkbox-label" for="recteate" title=""></label>
-              <span> Если активировать чекбокс, все ссылки, за исключением ссылок с параметром <i>"Не перезаписывать"</i>, будут удалены и сгенерированны заново.</span>
-            </div>';
+                <div class="ui-alert ui-alert-warning ui-alert-icon-danger ui-alert-xs">
+                <span class="ui-alert-message">
+                <strong>Перезапись ссылок:</strong>
+                <input type="checkbox" name="recteate" value="1" id="recteate" class="adm-designed-checkbox">
+                <label class="adm-designed-checkbox-label" for="recteate" title=""></label>
+                <span> Если активировать чекбокс, все ссылки, за исключением ссылок с параметром <i>"Не перезаписывать"</i>, будут удалены и сгенерированны заново.</span>
+                </div>';
                 echo '</td></td>';
             }
         }
@@ -153,7 +187,7 @@ class EventHelp extends \Orwo\Seotag\InitFilter
      */
     public function getHtmlpropFilter($arProperty, $value, $strHTMLControlName)
     {
-        $html = '<div style="margin-bottom: .5rem;">';
+        $html = '<div class="input_seo__prop" style="margin-bottom: .5rem;">';
         $html .= '<input id="seo-inp-val" class="adm-input seo-inp-val" list="seo-inp-val-select" placeholder="Код свойства"  name="' . $strHTMLControlName['VALUE'] . '" value="' . $value['VALUE'] . '"><datalist id="seo-inp-val-select">';
         $resPropertyCatalog = \CIBlockProperty::GetList([], array('IBLOCK_ID' => parent::catalogIblockID()));
         while ($prop = $resPropertyCatalog->Fetch()) {
