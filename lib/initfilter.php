@@ -176,26 +176,40 @@ class InitFilter
             $seoItem["META_TAGS"] = $resMeta->getValues();
 
             global $APPLICATION;
-            // canonical
-            $canonical = ($request->isHttps() == true ? "https://" : "http://") . $_SERVER['HTTP_HOST'] . $originalCurPage['UF_NEW'];
-            $APPLICATION->SetPageProperty('canonical', $canonical);
 
+            // canonical
+            $arMeta['canonical'] = ($request->isHttps() == true ? "https://" : "http://") . $_SERVER['HTTP_HOST'] . $originalCurPage['UF_NEW'];
+           
             // title
             if (!empty($seoItem["META_TAGS"]['ELEMENT_META_TITLE'])) {
-                $resTitle = self::getPattern($seoItem["META_TAGS"]['ELEMENT_META_TITLE'], $arFilter['VALUE_PATTERN']);
-                $APPLICATION->SetPageProperty("title", $resTitle);
+                $arMeta['title'] = self::getPattern($seoItem["META_TAGS"]['ELEMENT_META_TITLE'], $arFilter['VALUE_PATTERN']);
             }
             // description
             if (!empty($seoItem["META_TAGS"]['ELEMENT_META_DESCRIPTION'])) {
-                $resDescription = self::getPattern($seoItem["META_TAGS"]['ELEMENT_META_DESCRIPTION'], $arFilter['VALUE_PATTERN']);
-                $APPLICATION->SetPageProperty("description", $resDescription);
+                $arMeta['description'] = self::getPattern($seoItem["META_TAGS"]['ELEMENT_META_DESCRIPTION'], $arFilter['VALUE_PATTERN']);
             }
             // h1
             if (!empty($seoItem["META_TAGS"]['ELEMENT_PAGE_TITLE'])) {
-                $resPageTitle =  self::getPattern($seoItem["META_TAGS"]['ELEMENT_PAGE_TITLE'], $arFilter['VALUE_PATTERN']);
-                $APPLICATION->SetTitle($resPageTitle);
-                // Хлебные крошки
-                $APPLICATION->AddChainItem($resPageTitle, $originalCurPage['UF_NEW']);
+                $arMeta['h1'] = self::getPattern($seoItem["META_TAGS"]['ELEMENT_PAGE_TITLE'], $arFilter['VALUE_PATTERN']);
+            }
+
+            // Событие перед записью ссылок
+            $event = new \Bitrix\Main\Event("orwo.seotag", "OnAddMeta", $arMeta);
+            $event->send();
+            foreach ($event->getResults() as $eventResult) {
+                if ($eventResult->getType() == \Bitrix\Main\EventResult::ERROR) { // если обработчик вернул ошибку, ничего не делаем
+                    continue;
+                }
+                $arMeta = $eventResult->getParameters();
+            }
+            foreach ($arMeta as $name => $value) {
+                if ($name == 'h1') {
+                    $APPLICATION->SetTitle($value);
+                    // Хлебные крошки
+                    $APPLICATION->AddChainItem($value, $originalCurPage['UF_NEW']);
+                } else {
+                    $APPLICATION->SetPageProperty($name, $value);
+                }
             }
         }
     }
