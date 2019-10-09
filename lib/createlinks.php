@@ -2,377 +2,230 @@
 
 namespace Orwo\Seotag;
 
-class CreateLinks extends \Orwo\Seotag\InitFilter
+use Bitrix\Main\Loader;
+use Bitrix\Main\Web\Uri;
+use Bitrix\Main\Context;
+
+class EventHelp extends \Orwo\Seotag\InitFilter
 {
     /**
-     * [beforetUpdateElement создаем ссылки на стадии сохраниения сео элемента]
-     * @param  [type] $arFields [Данные пришедшие с события]
+     * [panelButton добавление кнопки редактирвания на панель]
      */
-    public function beforetUpdateElement($arFields = [])
+    public function panelButton()
     {
-        // Подключим нужные нам модули для работы
-        \Bitrix\Main\Loader::includeModule("iblock");
-        \Bitrix\Main\Loader::includeModule("highloadblock");
-
-        // Получаем настройки модуля
-        $seoIblock      = parent::seoIblockID();     // ID сео ифноблока
-        $catalogIblock  = parent::catalogIblockID(); // ID каталога ифноблока
-        $filterSef      = parent::filterSef();       // Стандартный ЧПУ фильтра
-        // Применяем событие только для сео-инфоблока
-        if ($arFields['IBLOCK_ID'] != $seoIblock) {
-            return;
+        global $APPLICATION, $USER;
+        if (!$USER->IsAdmin()) {
+            return false;
         }
+        $request = Context::getCurrent()->getRequest();
+        $uri = new Uri($request->getRequestUri());
+        $curPage = $uri->getPath();
 
-        $paramTranslitURL = array("replace_space" => "_", "replace_other" => "_");
-        /**
-         * @var $arPropsEvent - массив с ключем кодом свойств, вместо ID
-         */
-        $resPropertySeo = \CIBlockProperty::GetList([], array('IBLOCK_ID' => $seoIblock));
-        while ($arPropName = $resPropertySeo->Fetch()) {
-            $arPropsEvent[$arPropName['CODE']] = $arFields['PROPERTY_VALUES'][$arPropName['ID']];
-        }
-
-        /**
-         * [Работа с типом свойств. Добавляем в массив доп. данные]
-         */
-        foreach ($arPropsEvent['PROP_FILTER'] as $key => $value) {
-            $propType = \CIBlockProperty::GetByID($value['VALUE'], $catalogIblock)->GetNext();
-            $arPropsEvent['PROP_FILTER'][$key]['PROPERTY_TYPE'] = $propType['PROPERTY_TYPE'];
-            // Справочник
-            if ($propType['USER_TYPE'] == 'directory') {
-                $setMessage['error'][] = 'Невозможно обработать типа "Справочник"';
-                return $setMessage;
-            }
-            // Если свойство привязка, то получаем ID инфоблока привязки
-            if ($propType['PROPERTY_TYPE'] == 'G' || $propType['PROPERTY_TYPE'] == 'E') {
-                $arPropsEvent['PROP_FILTER'][$key]['SUB_IBLOCK'] = \CIBlockProperty::GetByID($value['VALUE'], $catalogIblock)->GetNext()['LINK_IBLOCK_ID'];
-            }
-            // С файлами не работаем
-            if ($propType['PROPERTY_TYPE'] == 'F') {
-                $setMessage['error'][] = 'Невозможно обработать строку типа "Файл"';
-                return $setMessage;
-            }
-        }
-
-        /**
-         * [delAllLinks Удаление ссылок для перезаписи]
-         */
-        if (!empty($_REQUEST['recteate'])) {
-            parent::delAllLinks($arFields['ID']);
-        }
-
-        // Событие перед записью ссылок
-        $event = new \Bitrix\Main\Event("orwo.seotag", "OnPropLinkCreate", [$arPropsEvent]);
-        $event->send();
-        foreach ($event->getResults() as $eventResult) {
-            if ($eventResult->getType() == \Bitrix\Main\EventResult::ERROR) { // если обработчик вернул ошибку, ничего не делаем
-                continue;
-            }
-            $arPropsEvent = $eventResult->getParameters();
-        }
-
-        /**
-         * [Берем первый элемент из массива через reset]
-         * @var $newTagSef  -  [Берем новое правило формирование URL]
-         * @var $tagNameVal -  [Получаем имя для тега]
-         */
-        $newTagSef    = reset($arPropsEvent['NEW_SEF'])['VALUE'];
-        $tagNameVal   = reset($arPropsEvent['NAME_TAG'])['VALUE'];
-
-        /**
-         * [Собираем заготовки под ссылки исходя из выбранных разделов]
-         * @var $urlList - Список шаблонных ссылок раздела
-         */
-        foreach ($arPropsEvent['SET_ID_LIST'] as $sectionID) {
-            $res = \CIBlockSection::GetByID($sectionID['VALUE']);
-            while ($arRes = $res->GetNext()) {
-                // Активен ли раздел
-                if ($arRes['ACTIVE'] == "Y" && !empty($arRes['SECTION_PAGE_URL'])) {
-                    $urlList[] = array(
-                        'OLD_LINK' =>  str_replace("#SECTION_CODE_PATH#/", $arRes['SECTION_PAGE_URL'], $filterSef),
-                        'NEW_LINK' => str_replace("#SECTION_CODE_PATH#/", $arRes['SECTION_PAGE_URL'], $newTagSef),
-                        'ID' => $arRes['ID']
-                    );
-                }
-            }
-        }
-   
-
-        $arLink = [];
-        /**
-         * [Работа с подготовленными данными]
-         */
-        foreach ($urlList as $compliteURL) {
-            $link['ID_CAT'] = $arFields['ID'];
-            $link['REDIRECT'] = (!empty($arPropsEvent['REDIRECT']) ? 1 : 0);
-            $link['SECTION_ID'] = $compliteURL['ID'];
-            $arProperties = [];
-            $count = 0;
-
-            foreach (array_values($arPropsEvent['PROP_FILTER']) as $kProp => $prop) {
-                if (empty($prop['VALUE']) && empty($prop['DESCRIPTION'])) {
-                    continue;
-                }
-                $count++;
-                /*--------ШАБЛОНЫЕ ССЫЛКИ-------*/
-                if ($prop['DESCRIPTION'] == "{FILTER_VALUE}") {
-                    // Запрос на выборку всех вариантов
-                    $rsProps = \CIBlockElement::GetList(array(), array("IBLOCK_ID" => $catalogIblock, "SECTION_ID" => $compliteURL['ID'], "INCLUDE_SUBSECTIONS" => "Y"), array("PROPERTY_" . $prop['VALUE']));
-                    $arRoundFiltered = [];
-                    while ($arProps = $rsProps->Fetch()) {
-                        if (empty($arProps['PROPERTY_' . $prop['VALUE'] . '_VALUE']) || $arProps['CNT'] < 1) {
-                            continue;
-                        }
-
-                        $propValue = $arProps['PROPERTY_' . $prop['VALUE'] . '_VALUE'];
-                        // Для свойств фильтра вида "ползунка"
-                        if (!empty($prop['PROPERTY_TYPE'] == "N")) {
-                            // Выборка значений 0.5, 1, 2 и т.д
-                            if ($propValue < 1) {
-                                $arRoundFiltered['0.5'] = $propValue;
-                            } else {
-                                $arRoundFiltered[floor($propValue)] = $propValue;
-                            }
-                        }
-                        // Если свойство "привязка", то получаем не ID, а название элемента привзяки
-                        if ($prop['PROPERTY_TYPE'] == "E") {
-                            $realValue = \CIBlockElement::GetList(array(), array("IBLOCK_ID" => $prop['SUB_IBLOCK'], "ID" => $propValue), false, false, ['NAME'])->GetNext();
-                            $arProps['PROPERTY_' . $prop['VALUE'] . '_VALUE'] = $realValue['NAME'];
-                        } elseif ($prop['PROPERTY_TYPE'] == "G") {
-                            $realValue = \CIBlockSection::GetByID($propValue)->GetNext();
-                            $arProps['PROPERTY_' . $prop['VALUE'] . '_VALUE'] = $realValue['NAME'];
-                        } elseif ($prop['PROPERTY_TYPE'] == "L" && !empty($arProps['PROPERTY_' . $prop['VALUE'] . '_ENUM_ID'])) {
-                            $arProps['PROPERTY_' . $prop['VALUE'] . '_VALUE'] = \CIBlockPropertyEnum::GetByID($arProps['PROPERTY_' . $prop['VALUE'] . '_ENUM_ID'])['VALUE'];
-                        }
-
-                        $arProps['VALUE'] = $arProps['PROPERTY_' . $prop['VALUE'] . '_VALUE'];
-                        unset($arProps['PROPERTY_' . $prop['VALUE'] . '_VALUE']);
-                        $arProps['PROPERTY_TYPE'] = $prop['PROPERTY_TYPE'];
-                        $arProps['CODE'] = $prop['VALUE'];
-
-                        // Собираем массив для работы с ним
-                        $arProperties[$kProp][] = $arProps;
-                    }
-                    /*-------КОНКРЕТНЫЕ ССЫЛКИ------*/
-                } else {
-
-                    /**
-                     * [Для типа привязки позволяем искать по имени или по ID]
-                     */
-                    if ($prop['PROPERTY_TYPE'] == "E") {
-                        $idPropList = \CIBlockElement::GetList(array(), array("IBLOCK_ID" => $prop['SUB_IBLOCK'], "NAME" => $prop['DESCRIPTION']), false, false, ['ID'])->GetNext();
-                        $arFilter = array("IBLOCK_ID" => $catalogIblock, "SECTION_ID" => $compliteURL['ID'], "INCLUDE_SUBSECTIONS" => "Y", "PROPERTY_" . $prop['VALUE'] => $idPropList);
-                    }
-                    if ($prop['PROPERTY_TYPE'] != "E" || empty($idPropList)) {
-                        $arFilter = array("IBLOCK_ID" => $catalogIblock, "SECTION_ID" => $compliteURL['ID'], "INCLUDE_SUBSECTIONS" => "Y", "PROPERTY_" . $prop['VALUE'] => $prop['DESCRIPTION']);
-                    }
-
-                    $rsProps = \CIBlockElement::GetList(array(), $arFilter, array("PROPERTY_" . $prop['VALUE']));
-                    while ($arProps = $rsProps->Fetch()) {
-                        // Если получаем пустое значение свойства или элементов меньше 1, то пропускаем
-                        if (empty($arProps['PROPERTY_' . $prop['VALUE'] . '_VALUE']) || $arProps['CNT'] < 1) {
-                            continue;
-                        }
-                        $arProps['VALUE'] = (!empty($idPropList) ? $prop['DESCRIPTION'] : $arProps['PROPERTY_' . $prop['VALUE'] . '_VALUE']);
-                        unset($arProps['PROPERTY_' . $prop['VALUE'] . '_VALUE']);
-                        $arProps['PROPERTY_TYPE'] = $prop['PROPERTY_TYPE'];
-                        $arProps['CODE'] = $prop['VALUE'];
-
-                        $arProperties[$kProp][] = $arProps;
-                    }
-                }
-            }
-
-
-            // Если конечное кол-в свойств меньше чем изначально, то пропускаем
-            // т.к мы работаем в режиме AND
-            if (!empty($arProperties) && count($arProperties) == $count) {
-
-                // Выборка уникальных значений
-                $arUniqProps = self::uniqLinks($arProperties);
-                // Сгенерированные ссылки проверяем на наличие элементов
-                foreach ($arUniqProps as $keyUniq => $arProp) {
-                    $arFilter = ["IBLOCK_ID" => $catalogIblock, "SECTION_ID" => $compliteURL['ID'], "INCLUDE_SUBSECTIONS" => "Y"];
-                    foreach ($arProp as $key => $value) {
-                        if ($value['PROPERTY_TYPE'] == 'E') {
-                            $arFilter['PROPERTY_' . $value['CODE'] . '_VALUE'][] = $value['VALUE'];
-                        } elseif ($value['PROPERTY_TYPE'] == 'L') {
-                            $arFilter['PROPERTY_' . $value['CODE'] . '_ENUM_ID'][] = $value['PROPERTY_' . $value['CODE'] . '_ENUM_ID'];
-                        } else {
-                            $arFilter['PROPERTY_' . $value['CODE']][] = $value['VALUE'];
-                        }
-                    }
-
-                    // Делаем запрос на получение элементов
-                    $rsUniqProp = \CIBlockElement::GetList(array(), $arFilter, array());
-
-                    if ($rsUniqProp == 0) {
-                        unset($arUniqProps[$keyUniq]);
-                    } else {
-                        $link['OLD_LINK'] = $compliteURL['OLD_LINK'];
-                        $link['NEW_LINK'] = $compliteURL['NEW_LINK'];
-
-                        foreach ($arUniqProps[$keyUniq] as $key => $prop) {
-                            $newFilterURL = mb_strtolower(\Cutil::translit($prop['VALUE'], "ru", $paramTranslitURL));
-                            $oldFilterURL = mb_strtolower($prop['CODE'] . '-is-' . self::encodeUrl($prop['VALUE']));
-                            // Для свойств фильтра вида "ползунка"
-                            if (!empty($prop['PROPERTY_TYPE'] == "N")) {
-                                // Ищем в массиве выборки данное значение, если не нашли пропускаем дальнейшие действия
-                                if ($keyNewUrl = array_search($prop['VALUE'], $arRoundFiltered)) {
-                                    // Т.к округление в меньшую сторону, а для 0.5 начинаем от 0
-                                    $newFilterURL = $keyNewUrl;
-                                    $oldFilterURL = mb_strtolower($prop['CODE'] . '-from-' . ($keyNewUrl < 0.999 ? 0 : $keyNewUrl) . '-to-' . $prop['VALUE']);
-                                } else {
-                                    continue;
-                                }
-                            }
-                            $tagName = parent::getPattern($tagNameVal, ['FILTER_VALUE' => (!empty($keyNewUrl) ? $keyNewUrl : $prop['VALUE'])]);
-                            $link['NAME_TAG'] = $tagName;
-                            $link['OLD_LINK'] = str_ireplace("#SMART_FILTER_PATH#", $oldFilterURL . "/#SMART_FILTER_PATH#", $link['OLD_LINK']);
-                            $link['NEW_LINK'] = str_ireplace(["{FILTER_VALUE}", "{FILTER_CODE}"], [$newFilterURL, mb_strtolower($prop['CODE'])], $link['NEW_LINK']);
-
-                            $arLink[] = $link;
-                        }
-                    }
-                }
-            }
-        }
-
-        foreach ($arLink as $key => $item) {
-            // Удаляем остатки от генерации
-            $arLink[$key]['OLD_LINK'] = str_replace("/#SMART_FILTER_PATH#", '', $item['OLD_LINK']);
-            $arLink[$key]['NEW_LINK'] = str_replace("{FILTER_VALUE}", '', $item['NEW_LINK']);
-        }
-        // Событие перед записью ссылок
-        $event = new \Bitrix\Main\Event("orwo.seotag", "OnBeforeLinkAdd", [$arLink]);
-        $event->send();
-        foreach ($event->getResults() as $eventResult) {
-            if ($eventResult->getType() == \Bitrix\Main\EventResult::ERROR) { // если обработчик вернул ошибку, ничего не делаем
-                continue;
-            }
-            $arLink = $eventResult->getParameters();
-        }
-        // Отдаем массив с сылками раздела на запись.
-        self::setHighloadLinks($arLink, $arFields['ID']);
-    }
-
-
-    /**
-     * [setHighloadLinks Запись ссылок в highloadblock]
-     * @param array $arLink [description]
-     */
-    public function setHighloadLinks($arLink = [], $seoElemenID = '')
-    {
-        // Подключаем класс Highload блока
-        $hldata   = \Bitrix\Highloadblock\HighloadBlockTable::getById(parent::seoHighloadID())->fetch();
-        $highloadClass = \Bitrix\Highloadblock\HighloadBlockTable::compileEntity($hldata)->getDataClass();
-        // При первом запросе запрашиваем ссылки данного элемента
-        if (empty($arCreatedLinks) && !empty($seoElemenID)) {
-            $arCreatedLinks = $highloadClass::getList(array('filter' => array('UF_ID' => $seoElemenID)))->fetchAll();
-        }
-
-        foreach ($arLink as $item) {
-            $keyUpdate = '';
-            $resultAddHL = [];
-            
-            // Если такая ссылка уже существует в другом условии
-            if ($checkLink = parent::getLink($item['NEW_LINK'])) {
-                if ($checkLink['UF_ID'] != $item['ID_CAT']) {
-                    // Удаляем ссылку из другого источника
-                    if ($checkLink['UF_NOT_UPDATE'] != 1) {
-                        parent::delAllLinks($checkLink['ID']);
-                    } else {
-                        continue;
-                    }
-                }
-            }
-
-
-            // Проверяем что делать с сылками добвлять или обновлять.
-            foreach ($arCreatedLinks as $kUpd => $vUpd) {
-                if ($vUpd['UF_OLD'] == $item['OLD_LINK']) {
-                    if ($vUpd['UF_NOT_UPDATE'] == 1) {
-                        unset($item);
-                        continue;
-                    }
-                    $keyUpdate = $kUpd;
-                    $item['OLD_LINK'] = $arCreatedLinks[$keyUpdate]['UF_OLD'];
-                    $item['NEW_LINK'] = $arCreatedLinks[$keyUpdate]['UF_NEW'];
-                    $item['ID'] = $arCreatedLinks[$keyUpdate]['ID'];
-                }
-            }
-
-            // Создаем ссылку
-            if (empty($item)) {
-                continue;
-            }
-            
-            $resultAddHL = array(
-                "UF_ACTIVE"   => 1,
-                'UF_OLD'      => $item['OLD_LINK'],
-                'UF_NEW'      => $item['NEW_LINK'],
-                'UF_ID'       => $item['ID_CAT'],
-                'UF_REDIRECT' => $item['REDIRECT'],
-                'UF_SECTION'  => $item['SECTION_ID'],
-                'UF_TAG'      => $item['NAME_TAG'],
-                'ID' => ($item['ID'] ? $item['ID'] : '')
+        // Получаем данные сео инфоблока
+        $originalCurPage = parent::getLink($curPage, true);
+        // Если найден ключ с ссылкой OLD настоящая ссылка всегда идет в curpage
+        if (!empty($originalCurPage)) {
+            // Выбираем текущую ссылку т.к curpage у нас заменился ранее, то проверяем обе ссылки
+            $editID = $originalCurPage["UF_ID"];
+            $editIblock = parent::seoIblockID();
+            Loader::includeModule("iblock");
+            $arButtons = \CIBlock::GetPanelButtons(
+                $editIblock,
+                $editID,
+                0,
+                array("SECTION_BUTTONS" => false, "SESSID" => false)
             );
-
-            if (isset($arCreatedLinks[$keyUpdate]) && !empty($item['ID'])) {
-                $highloadClass::update($item['ID'], $resultAddHL);
-                unset($arCreatedLinks[$keyUpdate]);
-            } else {
-                unset($resultAddHL['ID']);
-                $highloadClass::add($resultAddHL);
+            if ($arButtons["edit"]["edit_element"]["ACTION"]) {
+                $APPLICATION->AddPanelButton(
+                    array(
+                        "ID" => "3001", //определяет уникальность кнопки
+                        "TYPE" => "BIG",
+                        "TEXT" => "Редактировать SEO — фильтр",
+                        "MAIN_SORT" => 3000, //индекс сортировки для групп кнопок
+                        "SORT" => 1, //сортировка внутри группы
+                        "HREF" => $arButtons["edit"]["edit_element"]["ACTION"], //или javascript:MyJSFunction())
+                        "ICON" => "bx-panel-site-wizard-icon", //название CSS-класса с иконкой кнопки
+                    ),
+                    $bReplace = false //заменить существующую кнопку?
+                );
             }
         }
-        // Возвращаем массив ссылок hl без тех которые обновили
-        return $arCreatedLinks;
+    }
+
+
+    public function onInitHelpTab($arFields)
+    {
+        if ($arFields['IBLOCK']['ID'] == parent::seoIblockID()) {
+            return array(
+                "TABSET" => "seoFilter",
+                "GetTabs" => array(__CLASS__, "getHelpTabs"),
+                "ShowTab" => array(__CLASS__, "showHelpTab"),
+            );
+        }
+    }
+
+    public function getHelpTabs($arArgs)
+    {
+        return [["DIV" => "elementsTab", "TAB" => "Настройки ссылок", 'TITLE' => "Список сгенерированных ссылок"], ["DIV" => "helpTab", "TAB" => "Документация"]];
+    }
+
+    public function showHelpTab($divName, $arArgs, $bVarsFromForm)
+    {
+        $seoHighloadID = \Orwo\Seotag\InitFilter::seoHighloadID();
+        // Создаем сущность для работы с блоком:
+        \Bitrix\Main\UI\Extension::load("ui.alerts");
+        if (\Bitrix\Main\Loader::includeModule('highloadblock')) {
+            $arHLBlock = \Bitrix\Highloadblock\HighloadBlockTable::getById($seoHighloadID)->fetch();
+            $obEntity = \Bitrix\Highloadblock\HighloadBlockTable::compileEntity($arHLBlock);
+            $strEntityDataClass = $obEntity->getDataClass();
+            $rsMap = $strEntityDataClass;
+            //Получение списка:
+            $rsData = $strEntityDataClass::getList(array(
+                'select' => array('*'),
+                'filter' => array('UF_ID' => $arArgs['ID'])
+            ));
+            $columnFields = $GLOBALS['USER_FIELD_MANAGER']->GetUserFields('HLBLOCK_' . $seoHighloadID, 0, LANGUAGE_ID);
+        }
+
+        if ($divName == "helpTab") {
+            // Чтоб знать версию модуля
+            include(__DIR__ . "/../install/version.php");
+            echo '
+            <div class="ui-alert ui-alert-icon-info ui-alert-xs">
+                <span class="ui-alert-message"><strong>Версия модуля:</strong> v'.$arModuleVersion['VERSION'].'</span>
+            </div>';
+            echo '<tr><td style="padding: 5px;"><script src="//gist.github.com/Isa3v/e20394135dac1a5925e61cfd75c81cfa.js">
+            </script><script>document.querySelector(".gist-meta").innerHTML = "Original Works";</script></td></tr>';
+            // Целый файл нет смысла делать ради 2 стилей
+            echo '<style> 
+            .input_seo__prop{position: relative;}
+            .input_seo__prop:before{
+                content: "AND";
+                display: inline-block;
+                font-size: .7rem;
+                padding: .3em;
+                background: #e0e8ea;
+                border-radius: 5px;
+                position: absolute;
+                margin-top: 2em;
+                left: -3em;
+                top: 0;
+            }
+            </style>';
+        }
+        if ($divName == "elementsTab") {
+            if ($arArgs['ID'] != 0) {
+                $arHeaders[] = ["id" => 'ID',  "content" => 'ID',  "default" => "true"];
+                foreach ($columnFields as $key => $value) {
+                    $arHeaders[] = ["id" => $key, "content" => $value['EDIT_FORM_LABEL'], "default" => "true"];
+                }
+                $lAdmin = new \CAdminList('hlsef');
+                $lAdmin->AddHeaders($arHeaders);
+
+                while ($arHighloadItem = $rsData->Fetch()) {
+                    $arActions = array();
+                    $arHighloadItem['UF_OLD'] = urldecode($arHighloadItem['UF_OLD']);
+                    $row = &$lAdmin->AddRow($arHighloadItem['ID'], $arHighloadItem);
+                    $arActions[] = array(
+                        "ICON" => "edit",
+                        "DEFAULT" => true,
+                        "TEXT" => 'Изменить',
+                        "ACTION" => "(new BX.CAdminDialog({'content_url':'/bitrix/admin/highloadblock_row_edit.php?ENTITY_ID=" . $seoHighloadID . "&ID=" . $arHighloadItem['ID'] . "&lang=ru&mode=list&bxpublic=Y'})).Show();"
+                    );
+                    $arActions[] = array(
+                        "TEXT" => 'Открыть',
+                        "ACTION" => "BX.adminPanel.Redirect([], 'highloadblock_row_edit.php?&ENTITY_ID=" . $seoHighloadID . "&ID=" . $arHighloadItem['ID'] . "', event)"
+                    );
+                    $arActions[] = array(
+                        "ICON" => "copy",
+                        "TEXT" => 'Копировать',
+                        "ACTION" => "BX.adminPanel.Redirect([], 'highloadblock_row_edit.php?&ENTITY_ID=" . $seoHighloadID . "&ID=" . $arHighloadItem['ID'] . "&action=copy', event)"
+                    );
+                    $arActions[] = array(
+                        "ICON" => "delete",
+                        "TEXT" => 'Удалить',
+                        "ACTION" => "if (confirm('Удалить запись?')) 
+                         BX.adminPanel.Redirect([], 'highloadblock_row_edit.php?action=delete&ENTITY_ID=" . $seoHighloadID . "&ID=" . $arHighloadItem['ID'] . "&lang=ru&".bitrix_sessid_get()."', event)"
+                    );
+                    $row->AddActions($arActions);
+                }
+                echo '<tr><td>';
+                echo '
+                <div class="ui-alert ui-alert-icon-info ui-alert-xs">
+                <span class="ui-alert-message"><strong>Обновления значений!</strong> Для того, чтобы значения ссылки не перезаписалась используйте свойство <i>"Не перезаписывать"</i> в редактировании ссылки</span>
+                </div>';
+
+                $lAdmin->DisplayList();
+                echo '<br>
+                <div class="ui-alert ui-alert-warning ui-alert-icon-danger ui-alert-xs">
+                <span class="ui-alert-message">
+                <strong>Перезапись ссылок:</strong>
+                <input type="checkbox" name="recteate" value="1" id="recteate" class="adm-designed-checkbox">
+                <label class="adm-designed-checkbox-label" for="recteate" title=""></label>
+                <span> Если активировать чекбокс, все ссылки, за исключением ссылок с параметром <i>"Не перезаписывать"</i>, будут удалены и сгенерированны заново.</span>
+                </div>';
+                echo '</td></td>';
+            }
+        }
     }
 
     /**
-     * [encodeUrl кодирование строки url по правилам bitrix]
+     * [propFilterInit Кастомное свойства выбора свойства]
      */
-    public function encodeUrl($string)
+    public function propFilterInit()
     {
-        $replace = ["/", ',', ' ', '.', '"'];
-        $replacement = ["-", '%2C', '%20', '%2E', '%22'];
-        $string = str_ireplace($replace, $replacement, $string);
-        return $string;
+        return array(
+            'PROPERTY_TYPE'           => 'S',
+            'USER_TYPE'               => 'propFilterInit',
+            'DESCRIPTION'             => 'Условия свойств (SEO filter)',
+            'GetPropertyFieldHtml'    => array(__CLASS__, 'getHtmlpropFilter'),
+
+        );
+    }
+    /**
+     * [getHtmlpropFilter Внешний вид кастомного свойства]
+     */
+    public function getHtmlpropFilter($arProperty, $value, $strHTMLControlName)
+    {
+        $html = '<div class="input_seo__prop" style="margin-bottom: .5rem;">';
+        $html .= '<input id="seo-inp-val" class="adm-input seo-inp-val" list="seo-inp-val-select" placeholder="Код свойства"  name="' . $strHTMLControlName['VALUE'] . '" value="' . $value['VALUE'] . '"><datalist id="seo-inp-val-select">';
+        $resPropertyCatalog = \CIBlockProperty::GetList([], array('IBLOCK_ID' => parent::catalogIblockID()));
+        while ($prop = $resPropertyCatalog->Fetch()) {
+            if ($prop['USER_TYPE'] != 'directory' && $prop['PROPERTY_TYPE'] != 'F') {
+                $html .= '<option value="' . $prop['CODE'] . '" label="' . $prop['NAME'] . '" data-type="' . $prop['PROPERTY_TYPE'] . '"></option>';
+            }
+        }
+        $html .= '</datalist>';
+        $html .= '<span> Значение свойства: </span>';
+        $html .= '<input id="seo-inp-desc" class="adm-input seo-inp-desc" type="text" placeholder="Значение свойства" list="seo-inp-select" name="' . $strHTMLControlName['DESCRIPTION'] . '" value="' . $value['DESCRIPTION'] . '">';
+        $html .= '<datalist id="seo-inp-select"><option value="{FILTER_VALUE}" label="Любое из значений (По шаблону)"></option>';
+        $html .= '</datalist>';
+        $html .= '</div>';
+        return $html;
     }
 
     /**
-     * [uniqLinks Перебираем комбинации массивов]
-     * @param  $arFields [array][Общий массив для перебора вариантов]
-     * @return [array][Массив с комбинациями]
+     * [iconSeoIblock замена иконки инфоблока в панели администратора]
+     * "OnBuildGlobalMenu" - эвент
      */
-    public function uniqLinks($arFields)
+    public function iconSeoIblock(&$aGlobalMenu, &$aModuleMenu)
     {
-        $count = count($arFields);
-        for ($s = 0; $s < $count; $s++) {
-            $i[$s] = 0;
-            $n[$s] = count($arFields[$s]);
+        foreach ($aModuleMenu as $key => $value) {
+            if ($value['items_id'] == 'menu_iblock_/orwo_seotag') {
+                $navSeoFilter = $key;
+                $aModuleMenu[$navSeoFilter]['icon'] = 'seo_menu_icon';
+            }
+            if ($value['section'] == 'highloadblock') {
+                $seoHighloadID = \Orwo\Seotag\InitFilter::seoHighloadID();
+                $searchUrl = 'highloadblock_rows_list.php?ENTITY_ID=' . $seoHighloadID . '&lang=ru';
+                $navHighload = $key;
+            }
         }
-        $arUniq = array();
-        $done = false;
-        do {
-            $element = array();
-            for ($s = 0; $s < $count; ++$s) {
-                $element[] = $arFields[$s][$i[$s]];
+        foreach ($aModuleMenu[$navHighload]['items'] as $k => $v) {
+            if ($v['url'] == $searchUrl) {
+                $aModuleMenu[$navSeoFilter]['items'][] = $aModuleMenu[$navHighload]['items'][$k];
+                unset($aModuleMenu[$navHighload]['items'][$k]);
             }
-            $arUniq[] = $element;
-            for ($s = $count - 1; $s >= 0; --$s) {
-                $i[$s]++;
-                if ($i[$s] >= $n[$s] && $s == 0) {
-                    $done = true;
-                }
-                if ($i[$s] >= $n[$s]) {
-                    $i[$s] = 0;
-                } else {
-                    break;
-                }
-            }
-        } while (!$done);
-        return $arUniq;
+        }
     }
 }
